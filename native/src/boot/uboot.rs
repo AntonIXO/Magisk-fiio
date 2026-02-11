@@ -112,7 +112,7 @@ pub fn uboot_unpack(image: &Utf8CStr) -> LoggedResult<()> {
     Ok(())
 }
 
-pub fn uboot_repack(output: &Utf8CStr) -> LoggedResult<()> {
+pub fn uboot_repack(orig_image: &Utf8CStr, output: &Utf8CStr) -> LoggedResult<()> {
     // Read the ramdisk
     let ramdisk = std::fs::read(RAMDISK_FILE)?;
 
@@ -143,15 +143,33 @@ pub fn uboot_repack(output: &Utf8CStr) -> LoggedResult<()> {
     let header_crc = compute_crc32(&header[..UBOOT_HEADER_SIZE]);
     header[4..8].copy_from_slice(&header_crc.to_be_bytes());
 
-    // Write output: header + compressed body
+    // Determine the original image size for partition-aligned output
+    let orig_size = std::fs::metadata(orig_image.as_str())?.len() as usize;
+    let content_size = UBOOT_HEADER_SIZE + compressed.len();
+
+    if content_size > orig_size {
+        return log_err!(
+            "Repacked ramdisk ({} bytes) exceeds original image size ({} bytes)",
+            content_size,
+            orig_size
+        );
+    }
+
+    // Write output: header + compressed body + zero padding to match original size
     let mut out_file = File::create(output.as_str())?;
     out_file.write_all(&header[..UBOOT_HEADER_SIZE])?;
     out_file.write_all(&compressed)?;
 
+    let padding = orig_size - content_size;
+    if padding > 0 {
+        out_file.write_all(&vec![0u8; padding])?;
+    }
+
     eprintln!(
-        "U-Boot ramdisk repacked to [{}] ({} bytes)",
+        "U-Boot ramdisk repacked to [{}] ({} bytes, padded to {} bytes)",
         output,
-        UBOOT_HEADER_SIZE + compressed.len()
+        content_size,
+        orig_size
     );
 
     Ok(())
