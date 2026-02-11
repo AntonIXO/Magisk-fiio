@@ -12,6 +12,7 @@
 #define RECV_DTBO_FILE  "recovery_dtbo"
 #define DTB_FILE        "dtb"
 #define BOOTCONFIG_FILE "bootconfig"
+#define UBOOT_HEADER_FILE ".uboot_header"
 #define NEW_BOOT        "new-boot.img"
 
 #define BUFFER_MATCH(buf, s) (memcmp(buf, s, sizeof(s) - 1) == 0)

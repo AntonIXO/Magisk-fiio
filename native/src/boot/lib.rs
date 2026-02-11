@@ -18,6 +18,7 @@ mod payload;
 #[allow(warnings)]
 mod proto;
 mod sign;
+mod uboot;
 
 #[cxx::bridge]
 pub mod ffi {

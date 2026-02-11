@@ -5,6 +5,7 @@ use crate::ffi::{BootImage, FileFormat, cleanup, repack, split_image_dtb, unpack
 use crate::patch::hexpatch;
 use crate::payload::extract_boot_from_payload;
 use crate::sign::{sha1_hash, sign_boot_image};
+use crate::uboot::{uboot_is_valid, uboot_repack, uboot_unpack};
 use argh::{CommandInfo, EarlyExit, FromArgs, SubCommand};
 use base::libc::umask;
 use base::nix::fcntl::OFlag;
@@ -38,6 +39,9 @@ enum Action {
     Cleanup(Cleanup),
     Compress(Compress),
     Decompress(Decompress),
+    UbootUnpack(UbootUnpack),
+    UbootRepack(UbootRepack),
+    UbootDetect(UbootDetect),
 }
 
 #[derive(FromArgs)]
@@ -186,6 +190,27 @@ struct Decompress {
     out: Option<Utf8CString>,
 }
 
+#[derive(FromArgs)]
+#[argh(subcommand, name = "uboot_unpack")]
+struct UbootUnpack {
+    #[argh(positional)]
+    img: Utf8CString,
+}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "uboot_repack")]
+struct UbootRepack {
+    #[argh(positional)]
+    out: Option<Utf8CString>,
+}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "uboot_detect")]
+struct UbootDetect {
+    #[argh(positional)]
+    img: Utf8CString,
+}
+
 fn print_usage(cmd: &str) {
     eprintln!(
         r#"MagiskBoot - Boot Image Modification Tool
@@ -282,6 +307,22 @@ Supported actions:
     with another file removing its archive format file extension.
     Supported formats:
     {1}
+
+  uboot_unpack <bootimg>
+    Unpack a U-Boot ramdisk image (e.g. from Fiio HiFi players).
+    Strips the 64-byte U-Boot header, saves it to '.uboot_header',
+    and decompresses the body to 'ramdisk.cpio'.
+
+  uboot_repack [outfile]
+    Repack ramdisk.cpio into a U-Boot ramdisk image using the
+    header previously saved by uboot_unpack. Compresses the
+    ramdisk with gzip and updates the U-Boot header checksums.
+    Output defaults to 'new-boot.img' if [outfile] is not specified.
+
+  uboot_detect <bootimg>
+    Check if <bootimg> is a U-Boot ramdisk image.
+    Return value:
+    0:uboot    1:not_uboot
 "#,
         cmd,
         FileFormat::formats()
@@ -432,6 +473,18 @@ fn boot_main(cmds: CmdArgs) -> LoggedResult<i32> {
         }
         Action::Compress(Compress { format, file, out }) => {
             compress_cmd(format, &file, out.as_deref())?;
+        }
+        Action::UbootUnpack(UbootUnpack { img }) => {
+            uboot_unpack(&img)?;
+        }
+        Action::UbootRepack(UbootRepack { out }) => {
+            let out = out.as_deref().unwrap_or(cstr!("new-boot.img"));
+            uboot_repack(out)?;
+        }
+        Action::UbootDetect(UbootDetect { img }) => {
+            if !uboot_is_valid(&img) {
+                return log_err!("Not a U-Boot image");
+            }
         }
     }
     Ok(0)
