@@ -87,24 +87,33 @@ chmod -R 755 .
 
 CHROMEOS=false
 VENDORBOOT=false
+UBOOT=false
 
-ui_print "- Unpacking boot image"
-./magiskboot unpack "$BOOTIMAGE"
+# Check for U-Boot ramdisk format (e.g. Fiio HiFi players)
+# stderr suppressed: uboot_detect prints error for non-U-Boot images (normal case)
+if ./magiskboot uboot_detect "$BOOTIMAGE" 2>/dev/null; then
+  ui_print "- U-Boot ramdisk image detected"
+  UBOOT=true
+  ./magiskboot uboot_unpack "$BOOTIMAGE" || abort "! Unable to unpack U-Boot ramdisk"
+else
+  ui_print "- Unpacking boot image"
+  ./magiskboot unpack "$BOOTIMAGE"
 
-case $? in
-  0 ) ;;
-  2 )
-    ui_print "- ChromeOS boot image detected"
-    CHROMEOS=true
-    ;;
-  3 )
-    ui_print "- Vendor boot image detected"
-    VENDORBOOT=true
-    ;;
-  * )
-    abort "! Unable to unpack boot image"
-    ;;
-esac
+  case $? in
+    0 ) ;;
+    2 )
+      ui_print "- ChromeOS boot image detected"
+      CHROMEOS=true
+      ;;
+    3 )
+      ui_print "- Vendor boot image detected"
+      VENDORBOOT=true
+      ;;
+    * )
+      abort "! Unable to unpack boot image"
+      ;;
+  esac
+fi
 
 #################
 # Ramdisk Checks
@@ -257,7 +266,11 @@ fi
 #################
 
 ui_print "- Repacking boot image"
-./magiskboot repack "$BOOTIMAGE" || abort "! Unable to repack boot image"
+if $UBOOT; then
+  ./magiskboot uboot_repack new-boot.img || abort "! Unable to repack U-Boot ramdisk"
+else
+  ./magiskboot repack "$BOOTIMAGE" || abort "! Unable to repack boot image"
+fi
 
 # Sign chromeos boot
 $CHROMEOS && sign_chromeos

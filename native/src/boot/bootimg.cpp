@@ -1060,5 +1060,6 @@ void cleanup() {
     unlink(RECV_DTBO_FILE);
     unlink(DTB_FILE);
     unlink(BOOTCONFIG_FILE);
+    unlink(UBOOT_HEADER_FILE);
     rm_rf(VND_RAMDISK_DIR);
 }
