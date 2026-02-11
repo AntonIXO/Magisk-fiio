@@ -201,6 +201,8 @@ struct UbootUnpack {
 #[argh(subcommand, name = "uboot_repack")]
 struct UbootRepack {
     #[argh(positional)]
+    img: Utf8CString,
+    #[argh(positional)]
     out: Option<Utf8CString>,
 }
 
@@ -313,10 +315,12 @@ Supported actions:
     Strips the 64-byte U-Boot header, saves it to '.uboot_header',
     and decompresses the body to 'ramdisk.cpio'.
 
-  uboot_repack [outfile]
+  uboot_repack <origbootimg> [outfile]
     Repack ramdisk.cpio into a U-Boot ramdisk image using the
     header previously saved by uboot_unpack. Compresses the
-    ramdisk with gzip and updates the U-Boot header checksums.
+    ramdisk with gzip, updates the U-Boot header checksums, and
+    pads the output with zeros to match the original image size
+    so it can be flashed directly to the ramdisk partition.
     Output defaults to 'new-boot.img' if [outfile] is not specified.
 
   uboot_detect <bootimg>
@@ -477,9 +481,9 @@ fn boot_main(cmds: CmdArgs) -> LoggedResult<i32> {
         Action::UbootUnpack(UbootUnpack { img }) => {
             uboot_unpack(&img)?;
         }
-        Action::UbootRepack(UbootRepack { out }) => {
+        Action::UbootRepack(UbootRepack { img, out }) => {
             let out = out.as_deref().unwrap_or(cstr!("new-boot.img"));
-            uboot_repack(out)?;
+            uboot_repack(&img, out)?;
         }
         Action::UbootDetect(UbootDetect { img }) => {
             if !uboot_is_valid(&img) {

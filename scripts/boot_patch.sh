@@ -267,7 +267,7 @@ fi
 
 ui_print "- Repacking boot image"
 if $UBOOT; then
-  ./magiskboot uboot_repack new-boot.img || abort "! Unable to repack U-Boot ramdisk"
+  ./magiskboot uboot_repack "$BOOTIMAGE" new-boot.img || abort "! Unable to repack U-Boot ramdisk"
 else
   ./magiskboot repack "$BOOTIMAGE" || abort "! Unable to repack boot image"
 fi
