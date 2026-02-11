@@ -10,29 +10,32 @@ const UBOOT_HEADER_SIZE: usize = 64;
 pub const UBOOT_HEADER_FILE: &str = ".uboot_header";
 const RAMDISK_FILE: &str = "ramdisk.cpio";
 
-fn crc32_table() -> [u32; 256] {
-    let mut table = [0u32; 256];
+const CRC32_TABLE: [u32; 256] = {
     let poly: u32 = 0xEDB88320;
-    for (i, entry) in table.iter_mut().enumerate() {
+    let mut table = [0u32; 256];
+    let mut i = 0;
+    while i < 256 {
         let mut crc = i as u32;
-        for _ in 0..8 {
+        let mut j = 0;
+        while j < 8 {
             if crc & 1 != 0 {
                 crc = (crc >> 1) ^ poly;
             } else {
                 crc >>= 1;
             }
+            j += 1;
         }
-        *entry = crc;
+        table[i] = crc;
+        i += 1;
     }
     table
-}
+};
 
 fn compute_crc32(data: &[u8]) -> u32 {
-    let table = crc32_table();
     let mut crc: u32 = 0xFFFFFFFF;
     for &byte in data {
         let index = ((crc ^ byte as u32) & 0xFF) as usize;
-        crc = (crc >> 8) ^ table[index];
+        crc = (crc >> 8) ^ CRC32_TABLE[index];
     }
     crc ^ 0xFFFFFFFF
 }
@@ -113,8 +116,8 @@ pub fn uboot_repack(output: &Utf8CStr) -> LoggedResult<()> {
     // Read the ramdisk
     let ramdisk = std::fs::read(RAMDISK_FILE)?;
 
-    // Compress ramdisk with gzip
-    let mut encoder = GzEncoder::new(Vec::new(), Compression::best());
+    // Compress ramdisk with gzip (default level for balance on constrained devices)
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(&ramdisk)?;
     let compressed = encoder.finish()?;
     eprintln!("Ramdisk compressed: {} -> {} bytes", ramdisk.len(), compressed.len());

@@ -90,6 +90,7 @@ VENDORBOOT=false
 UBOOT=false
 
 # Check for U-Boot ramdisk format (e.g. Fiio HiFi players)
+# stderr suppressed: uboot_detect prints error for non-U-Boot images (normal case)
 if ./magiskboot uboot_detect "$BOOTIMAGE" 2>/dev/null; then
   ui_print "- U-Boot ramdisk image detected"
   UBOOT=true
